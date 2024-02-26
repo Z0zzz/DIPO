@@ -119,7 +119,6 @@ class Diffusion(nn.Module):
     @torch.no_grad()
     def p_sample_loop(self, state, shape):
         device = self.betas.device
-
         batch_size = shape[0]
         x = torch.randn(shape, device=device)
 

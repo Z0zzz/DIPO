@@ -4,9 +4,10 @@ import torch
 
 from agent.DiPo import DiPo
 from agent.replay_memory import ReplayMemory, DiffusionMemory
+import datetime
+from torch.utils.tensorboard import SummaryWriter
 
-from tensorboardX import SummaryWriter
-import gym
+import gymnasium as gym
 import os
 
 
@@ -53,7 +54,15 @@ def readParser():
 
     parser.add_argument('--cuda', default='cuda:0',
                         help='run on CUDA (default: cuda:0)')
-
+    parser.add_argument("--wandb-project-name", type=str, default="ManiSkill2-dev",
+                        help="the wandb's project name")
+    parser.add_argument("--wandb-entity", type=str, default=None,
+                        help="the entity (team) of wandb's project")
+    parser.add_argument("--exp-name", type=str, default=os.path.basename(__file__).rstrip(".py"),
+                        help="the name of this experiment")
+    parser.add_argument("--output-dir", type=str, default='output')
+    parser.add_argument("--track", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+                        help="if toggled, this experiment will be tracked with Weights and Biases")
     return parser.parse_args()
 
 
@@ -62,13 +71,22 @@ def evaluate(env, agent, writer, steps):
     returns = np.zeros((episodes,), dtype=np.float32)
 
     for i in range(episodes):
-        state = env.reset()
+        state, _ = env.reset()
         episode_reward = 0.
         done = False
-        while not done:
+        truncated = False
+        count = 0
+        print("episode: ", i, flush=True)
+        while not (done or truncated):
             action = agent.sample_action(state, eval=True)
-            next_state, reward, done, _ = env.step(action)
+            next_state, reward, done, truncated,  _ = env.step(action)
+            count += 1
             episode_reward += reward
+            # print("done: ", done)
+            # print("truncates: ", truncated)
+            
+            # print("episode reward: ", episode_reward)
+            # print("counting: ", count)
             state = next_state
         returns[i] = episode_reward
 
@@ -86,12 +104,37 @@ def main(args=None):
     if args is None:
         args = readParser()
 
-    device = torch.device(args.cuda)
+    device = torch.device(int(args.cuda))
+    
+    ALGO_NAME="DIPO"
+    now = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
+    tag = '{:s}_{:d}'.format(now, args.seed)
+    if args.exp_name: tag += '_' + args.exp_name
+    log_name = os.path.join(args.env_name, ALGO_NAME, tag)
+    log_path = os.path.join(args.output_dir, log_name)
+    
+    if args.track:
+        import wandb
 
-    dir = "record"
+        wandb.init(
+            project=args.wandb_project_name,
+            entity=args.wandb_entity,
+            sync_tensorboard=True,
+            config=vars(args),
+            name=log_name.replace(os.path.sep, "__"),
+            monitor_gym=True,
+            save_code=True,
+        )
+
+    # dir = "record"
     # dir = "test"
-    log_dir = os.path.join(dir, f'{args.env_name}', f'policy_type={args.policy_type}', f'ratio={args.ratio}', f'seed={args.seed}')
-    writer = SummaryWriter(log_dir)
+    # log_dir = os.path.join(dir, f'{args.env_name}', f'policy_type={args.policy_type}', f'ratio={args.ratio}', f'seed={args.seed}')
+    writer = SummaryWriter(log_path)
+    writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+    )
+
 
     # Initial environment
     env = gym.make(args.env_name)
@@ -102,7 +145,9 @@ def main(args=None):
     # Set random seed
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
-    env.seed(args.seed)
+    # env.seed(args.seed)
+    env.action_space.seed(args.seed)
+    env.observation_space.seed(args.seed)
 
     memory_size = 1e6
     num_steps = args.num_steps
@@ -124,15 +169,16 @@ def main(args=None):
         episode_reward = 0.
         episode_steps = 0
         done = False
-        state = env.reset()
+        truncated = False
+        state, _ = env.reset()
         episodes += 1
-        while not done:
+        while not (done or truncated):
             if start_steps > steps:
                 action = env.action_space.sample()
             else:
                 action = agent.sample_action(state, eval=False)
-            next_state, reward, done, _ = env.step(action)
-
+            next_state, reward, done, truncated,  _ = env.step(action)
+            # print("step: ", steps)                
             mask = 0.0 if done else args.gamma
 
             steps += 1
@@ -142,7 +188,7 @@ def main(args=None):
             agent.append_memory(state, action, reward, next_state, mask)
 
             if steps >= start_steps:
-                agent.train(updates_per_step, batch_size=batch_size, log_writer=writer)
+                agent.train(updates_per_step, batch_size=batch_size, global_step=steps, log_writer=writer)
 
             if steps % eval_interval == 0:
                 evaluate(env, agent, writer, steps)
@@ -151,8 +197,8 @@ def main(args=None):
 
             state = next_state
 
-        # if episodes % log_interval == 0:
-        #     writer.add_scalar('reward/train', episode_reward, steps)
+        if episodes % log_interval == 0:
+            writer.add_scalar('reward/train', episode_reward, steps)
 
         print(f'episode: {episodes:<4}  '
             f'episode steps: {episode_steps:<4}  '
