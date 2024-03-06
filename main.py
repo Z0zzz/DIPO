@@ -121,8 +121,10 @@ def main(args=None):
     if args is None:
         args = readParser()
 
-    device = torch.device(args.cuda)
-    # device = "cpu"
+    if args.cuda:
+        device = torch.device(int(args.cuda))
+    else:
+        device = "cpu"
     
     dir = "record"
     # dir = "test"
