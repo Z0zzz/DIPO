@@ -92,7 +92,7 @@ def evaluate(env, agent, writer, steps, device):
         done = False
         while not done:
             pred_actions, action = agent.sample_action(torch.tensor(state, dtype=torch.float32).unsqueeze(dim=0).to(device))
-            action = action.detach().cpu().numpy()
+            action = np.squeeze(action.detach().cpu().numpy(), axis=None)
             next_state, reward, done, truncated,  _ = env.step(action)
             episode_reward += reward
             state = next_state
@@ -176,9 +176,10 @@ def main(args=None):
             if start_steps > steps:
                 pred_horizon_actions = np.array([env.action_space.sample() for _ in range(args.pred_horizon)])
                 actions = pred_horizon_actions[act_horizon_start:act_horizon_end][0]  # execute only act_horizon actions
+                actions = np.squeeze(actions.detach().cpu().numpy(), axis=None)
             else:
                 pred_actions, actions = agent.sample_action(state)
-                actions = actions.detach().cpu().numpy()
+                actions = np.squeeze(actions.detach().cpu().numpy(), axis=None)
             next_state, reward, done, truncated,  _ = env.step(actions)
 
             mask = 0.0 if done else args.gamma
