@@ -107,9 +107,10 @@ class DiPo(object):
 
         # obs_seq: (B, obs_horizon, obs_dim)
         obs_seq = torch.tensor(obs_seq).to(self.device)
+        print("sample_action obs_seq shape: ", obs_seq.shape)
         B = obs_seq.shape[0]
         with torch.no_grad():
-            obs_cond = torch.flatten(obs_seq, start_dim=1) # (B, obs_horizon * obs_dim)
+            # obs_cond = torch.flatten(obs_seq) # (B, obs_horizon * obs_dim)
 
             # initialize action from Guassian noise
             noisy_action_seq = torch.randn((B, self.pred_horizon, self.action_dim), device=obs_seq.device)
