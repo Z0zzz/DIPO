@@ -98,7 +98,7 @@ class DiPo(object):
         self.memory.append(state, action, reward, next_state, mask)
         self.diffusion_memory.append(state, pred_horizon_actions)
 
-    def sample_action(self, obs_seq):
+    def sample_action(self, obs_seq, actor=None):
         # init scheduler
         # self.noise_scheduler.set_timesteps(self.num_diffusion_iters)
         # set_timesteps will change noise_scheduler.timesteps is only used in noise_scheduler.step()
@@ -106,16 +106,17 @@ class DiPo(object):
         # if we use DDPM, and inference_diffusion_steps == train_diffusion_steps, then we can skip this
 
         # obs_seq: (B, obs_horizon, obs_dim)
+        actor = self.actor if actor is None else actor
         B = obs_seq.shape[0]
         with torch.no_grad():
             # obs_cond = torch.flatten(obs_seq) # (B, obs_horizon * obs_dim)
             obs_cond = obs_seq
             # initialize action from Guassian noise
-            noisy_action_seq = torch.randn((B, self.pred_horizon, self.action_dim), device=obs_seq.device)
+            noisy_action_seq = torch.randn((B, self.pred_horizon, self.action_dim), device=self.device)
             
             for k in self.noise_scheduler.timesteps:
                 # predict noise
-                noise_pred = self.actor(
+                noise_pred = actor(
                     sample=noisy_action_seq,
                     timestep=k,
                     global_cond=obs_cond,
@@ -181,7 +182,7 @@ class DiPo(object):
             
             print("q values: ", current_q1.mean().item(), " ", current_q2.mean().item(), flush=True)
             
-            next_pred_actions, next_actions = self.sample_action(next_states)
+            next_pred_actions, next_actions = self.sample_action(next_states, self.actor_target)
             next_states_flatten = torch.flatten(next_states, start_dim=1)
             next_actions = torch.flatten(next_actions, start_dim=1)
 

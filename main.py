@@ -109,16 +109,6 @@ def evaluate(env, agent, writer, steps, device):
               f'reward: {mean_return:<5.1f}')
     print('-' * 60)
 
-class SeqActionWrapper(gym.Wrapper):
-    def step(self, action_seq):
-        rew_sum = 0
-        for action in action_seq:
-            obs, rew, terminated, truncated, info = self.env.step(action)
-            rew_sum += rew
-            if terminated or truncated:
-                break
-        return obs, rew_sum, terminated, truncated, info
-
 
 def main(args=None):
     if args is None:
