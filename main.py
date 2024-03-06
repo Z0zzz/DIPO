@@ -92,7 +92,7 @@ def evaluate(env, agent, writer, steps):
         done = False
         while not done:
             action = agent.sample_action(state, eval=True)
-            next_state, reward, done, _ = env.step(action)
+            next_state, reward, done, truncated,  _ = env.step(action)
             episode_reward += reward
             state = next_state
         returns[i] = episode_reward
@@ -175,7 +175,7 @@ def main(args=None):
                 actions = pred_horizon_actions[act_horizon_start:act_horizon_end][0]  # execute only act_horizon actions
             else:
                 actions = agent.sample_action(state, eval=False)
-            next_state, reward, done, _ = env.step(actions)
+            next_state, reward, done, truncated,  _ = env.step(actions)
 
             mask = 0.0 if done else args.gamma
 
