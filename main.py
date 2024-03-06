@@ -87,6 +87,7 @@ def evaluate(env, agent, writer, steps, device):
     returns = np.zeros((episodes,), dtype=np.float32)
 
     for i in range(episodes):
+        print("evaluating...")
         state, _ = env.reset()
         episode_reward = 0.
         done = False
@@ -200,8 +201,8 @@ def main(args=None):
 
             state = next_state
 
-        # if episodes % log_interval == 0:
-        #     writer.add_scalar('reward/train', episode_reward, steps)
+        if episodes % log_interval == 0:
+            writer.add_scalar('reward/train', episode_reward, steps)
 
         print(f'episode: {episodes:<4}  '
             f'episode steps: {episode_steps:<4}  '
