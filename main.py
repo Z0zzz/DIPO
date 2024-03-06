@@ -5,8 +5,8 @@ import torch
 from agent.DiPo import DiPo
 from agent.replay_memory import ReplayMemory, DiffusionMemory
 
-from tensorboardX import SummaryWriter
-import gym
+from torch.utils.tensorboard import SummaryWriter
+import gymnasium as gym
 import os
 
 
