@@ -183,7 +183,7 @@ def main(args=None):
             agent.append_memory(state, actions, reward, next_state, mask, pred_horizon_actions)
 
             if steps >= start_steps:
-                agent.train(updates_per_step, batch_size=batch_size, log_writer=writer)
+                agent.train(updates_per_step, global_step = steps, batch_size=batch_size, log_writer=writer)
 
             if steps % eval_interval == 0:
                 evaluate(env, agent, writer, steps, device)

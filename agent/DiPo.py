@@ -172,7 +172,7 @@ class DiPo(object):
 
         return states, torch.tensor(best_actions_new).to(self.device)
 
-    def train(self, iterations, batch_size=256, log_writer=None):
+    def train(self, iterations, global_step, batch_size=256, log_writer=None):
         for _ in range(iterations):
             # Sample replay buffer / batch
             states, actions, rewards, next_states, masks = self.memory.sample(batch_size)
@@ -190,8 +190,11 @@ class DiPo(object):
             target_q = torch.min(target_q1, target_q2)
 
             target_q = (rewards + masks * target_q).detach()
-
-            critic_loss = F.mse_loss(current_q1, target_q) + F.mse_loss(current_q2, target_q)
+            
+            q1_loss = F.mse_loss(current_q1, target_q)
+            q2_loss = F.mse_loss(current_q2, target_q)
+            
+            critic_loss = q1_loss + q2_loss
             
             print("q loss: ", critic_loss.item())
             
@@ -227,7 +230,13 @@ class DiPo(object):
                     target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
             
             self.step += 1
-
+        log_writer.add_scalar("losses/qf1_values", current_q1.mean().item(), global_step)
+        log_writer.add_scalar("losses/qf2_values", current_q2.mean().item(), global_step)
+        log_writer.add_scalar("losses/qf1_loss", q1_loss.item(), global_step)
+        log_writer.add_scalar("losses/qf2_loss", q2_loss.item(), global_step)
+        log_writer.add_scalar("losses/critic_loss", critic_loss.item(), global_step)
+        log_writer.add_scalar("losses/actor_loss", actor_loss.item(), global_step)
+        
     def compute_loss(self, obs_seq, action_seq, device):
         B = obs_seq.shape[0]
 
