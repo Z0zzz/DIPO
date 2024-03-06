@@ -91,7 +91,7 @@ def evaluate(env, agent, writer, steps):
         episode_reward = 0.
         done = False
         while not done:
-            action = agent.sample_action(state, eval=True)
+            action = agent.sample_action(state)
             next_state, reward, done, truncated,  _ = env.step(action)
             episode_reward += reward
             state = next_state
