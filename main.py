@@ -78,17 +78,6 @@ def readParser():
     parser.add_argument("--unet-dims", metavar='N', type=int, nargs='+', default=[64, 128, 256]) # ~4.5M params
     parser.add_argument("--n-groups", type=int, default=8)
 
-    parser.add_argument("--wandb-project-name", type=str, default="ManiSkill2-dev",
-                        help="the wandb's project name")
-    parser.add_argument("--wandb-entity", type=str, default=None,
-                        help="the entity (team) of wandb's project")
-    parser.add_argument("--exp-name", type=str, default=os.path.basename(__file__).rstrip(".py"),
-                        help="the name of this experiment")
-    parser.add_argument("--output-dir", type=str, default='output')
-    parser.add_argument("--track", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
-                        help="if toggled, this experiment will be tracked with Weights and Biases")
-    
-
     return parser.parse_args()
 
 
