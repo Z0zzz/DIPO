@@ -82,7 +82,7 @@ def readParser():
     return parser.parse_args()
 
 
-def evaluate(env, agent, writer, steps):
+def evaluate(env, agent, writer, steps, device):
     episodes = 10
     returns = np.zeros((episodes,), dtype=np.float32)
 
@@ -91,7 +91,7 @@ def evaluate(env, agent, writer, steps):
         episode_reward = 0.
         done = False
         while not done:
-            action = agent.sample_action(state)
+            action = agent.sample_action(torch.tensor(state).unsqueeze(dim=0).to(device))
             next_state, reward, done, truncated,  _ = env.step(action)
             episode_reward += reward
             state = next_state
@@ -176,7 +176,7 @@ def main(args=None):
                 pred_horizon_actions = np.array([env.action_space.sample() for _ in range(args.pred_horizon)])
                 actions = pred_horizon_actions[act_horizon_start:act_horizon_end][0]  # execute only act_horizon actions
             else:
-                actions = agent.sample_action(state, eval=False)
+                actions = agent.sample_action(state)
             next_state, reward, done, truncated,  _ = env.step(actions)
 
             mask = 0.0 if done else args.gamma
@@ -191,7 +191,7 @@ def main(args=None):
                 agent.train(updates_per_step, batch_size=batch_size, log_writer=writer)
 
             if steps % eval_interval == 0:
-                evaluate(env, agent, writer, steps)
+                evaluate(env, agent, writer, steps, device)
                 # self.save_models()
                 done =True
 
