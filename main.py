@@ -176,7 +176,7 @@ def main(args=None):
             if start_steps > steps:
                 pred_horizon_actions = np.array([env.action_space.sample() for _ in range(args.pred_horizon)])
                 actions = pred_horizon_actions[act_horizon_start:act_horizon_end][0]  # execute only act_horizon actions
-                actions = np.squeeze(actions.detach().cpu().numpy(), axis=None)
+                actions = np.squeeze(actions, axis=None)
             else:
                 pred_actions, actions = agent.sample_action(state)
                 actions = np.squeeze(actions.detach().cpu().numpy(), axis=None)
