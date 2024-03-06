@@ -165,8 +165,8 @@ class DiPo(object):
             action_horizon_best_actions.requires_grad_(False)  
             action_horizon_best_actions.clamp_(-1., 1.)
     
-        best_actions_new = best_actions.detach().numpy()
-        best_actions_new[:, self.act_horizon_start:self.act_horizon_end] = action_horizon_best_actions.detach().numpy()
+        best_actions_new = best_actions.detach().cpu().numpy()
+        best_actions_new[:, self.act_horizon_start:self.act_horizon_end] = action_horizon_best_actions.detach().cpu().numpy()
         self.diffusion_memory.replace(idxs, best_actions_new)
 
         return states, torch.tensor(best_actions_new)
