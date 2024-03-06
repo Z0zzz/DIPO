@@ -18,7 +18,7 @@ class ReplayMemory():
         self.full = False
 
     def append(self, state, action, reward, next_state, mask):
-
+        
         np.copyto(self.states[self.idx], state)
         np.copyto(self.actions[self.idx], action)
         np.copyto(self.rewards[self.idx], reward)
@@ -44,12 +44,12 @@ class ReplayMemory():
 
 class DiffusionMemory():
     """Buffer to store best actions."""
-    def __init__(self, state_dim, action_dim, capacity, device):
+    def __init__(self, state_dim, action_dim, act_pred_horizon_size, capacity, device):
         self.capacity = int(capacity)
         self.device = device
 
         self.states = np.empty((self.capacity, int(state_dim)), dtype=np.float32)
-        self.best_actions = np.empty((self.capacity, int(action_dim)), dtype=np.float32)
+        self.best_actions = np.empty((self.capacity, act_pred_horizon_size, int(action_dim)), dtype=np.float32)
 
         self.idx = 0
         self.full = False

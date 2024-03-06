@@ -50,9 +50,34 @@ def readParser():
                         help='the ratio of action grad norm to action_dim (default: 0.1)')
     parser.add_argument('--ac_grad_norm', type=float, default=2.0, metavar='G',
                         help='actor and critic grad norm (default: 1.0)')
-
+    
+    parser.add_argument("--wandb-project-name", type=str, default="ManiSkill2-dev",
+                        help="the wandb's project name")
+    parser.add_argument("--wandb-entity", type=str, default=None,
+                        help="the entity (team) of wandb's project")
+    parser.add_argument("--exp-name", type=str, default=os.path.basename(__file__).rstrip(".py"),
+                        help="the name of this experiment")
+    parser.add_argument("--output-dir", type=str, default='output')
+    parser.add_argument("--track", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+                        help="if toggled, this experiment will be tracked with Weights and Biases")
+    
+    parser.add_argument("--num-train-diffusion-iters", type=int, default=100)
+    parser.add_argument("--num-eval-diffusion-iters", type=int, default=4)
+    
     parser.add_argument('--cuda', default='cuda:0',
                         help='run on CUDA (default: cuda:0)')
+
+    # DIPO: add diffusion policy hps
+    parser.add_argument("--obs-horizon", type=int, default=1)
+    # Seems not very important in ManiSkill, 1, 2, 4 work well
+    parser.add_argument("--act-horizon", type=int, default=1)
+    # Seems not very important in ManiSkill, 4, 8, 15 work well
+    parser.add_argument("--pred-horizon", type=int, default=16)
+    # 16->8 leads to worse performance, maybe it is like generate a half image; 16->32, improvement is very marginal
+    parser.add_argument("--diffusion-step-embed-dim", type=int, default=64) # not very important
+    parser.add_argument("--unet-dims", metavar='N', type=int, nargs='+', default=[64, 128, 256]) # ~4.5M params
+    parser.add_argument("--n-groups", type=int, default=8)
+
 
     return parser.parse_args()
 
@@ -81,13 +106,24 @@ def evaluate(env, agent, writer, steps):
               f'reward: {mean_return:<5.1f}')
     print('-' * 60)
 
+class SeqActionWrapper(gym.Wrapper):
+    def step(self, action_seq):
+        rew_sum = 0
+        for action in action_seq:
+            obs, rew, terminated, truncated, info = self.env.step(action)
+            rew_sum += rew
+            if terminated or truncated:
+                break
+        return obs, rew_sum, terminated, truncated, info
+
 
 def main(args=None):
     if args is None:
         args = readParser()
 
-    device = torch.device(args.cuda)
-
+    # device = torch.device(args.cuda)
+    device = "cpu"
+    
     dir = "record"
     # dir = "test"
     log_dir = os.path.join(dir, f'{args.env_name}', f'policy_type={args.policy_type}', f'ratio={args.ratio}', f'seed={args.seed}')
@@ -95,9 +131,11 @@ def main(args=None):
 
     # Initial environment
     env = gym.make(args.env_name)
+    # env = SeqActionWrapper(env)
+    
     state_size = int(np.prod(env.observation_space.shape))
     action_size = int(np.prod(env.action_space.shape))
-    print(action_size)
+    print("state size: ", action_size)
 
     # Set random seed
     torch.manual_seed(args.seed)
@@ -112,8 +150,11 @@ def main(args=None):
     batch_size = args.batch_size
     log_interval = 10
     
+    act_horizon_start = args.obs_horizon - 1
+    act_horizon_end = act_horizon_start + args.act_horizon
+    
     memory = ReplayMemory(state_size, action_size, memory_size, device)
-    diffusion_memory = DiffusionMemory(state_size, action_size, memory_size, device)
+    diffusion_memory = DiffusionMemory(state_size, action_size, args.pred_horizon, memory_size, device)
 
     agent = DiPo(args, state_size, env.action_space, memory, diffusion_memory, device)
 
@@ -128,10 +169,11 @@ def main(args=None):
         episodes += 1
         while not done:
             if start_steps > steps:
-                action = env.action_space.sample()
+                pred_horizon_actions = np.array([env.action_space.sample() for _ in range(args.pred_horizon)])
+                actions = pred_horizon_actions[act_horizon_start:act_horizon_end][0]  # execute only act_horizon actions
             else:
-                action = agent.sample_action(state, eval=False)
-            next_state, reward, done, _ = env.step(action)
+                actions = agent.sample_action(state, eval=False)
+            next_state, reward, done, _ = env.step(actions)
 
             mask = 0.0 if done else args.gamma
 
@@ -139,7 +181,7 @@ def main(args=None):
             episode_steps += 1
             episode_reward += reward
 
-            agent.append_memory(state, action, reward, next_state, mask)
+            agent.append_memory(state, actions, reward, next_state, mask, pred_horizon_actions)
 
             if steps >= start_steps:
                 agent.train(updates_per_step, batch_size=batch_size, log_writer=writer)
