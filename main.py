@@ -143,7 +143,7 @@ def main(args=None):
     # dir = "record"
     # # dir = "test"
     # log_dir = os.path.join(dir, f'{args.env_name}', f'policy_type={args.policy_type}', f'ratio={args.ratio}', f'seed={args.seed}')
-    writer = SummaryWriter(log_dir)
+    writer = SummaryWriter(log_path)
     writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
