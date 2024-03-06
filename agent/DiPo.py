@@ -106,6 +106,7 @@ class DiPo(object):
         # if we use DDPM, and inference_diffusion_steps == train_diffusion_steps, then we can skip this
 
         # obs_seq: (B, obs_horizon, obs_dim)
+        obs_seq = torch.tensor(obs_seq).to(self.device)
         B = obs_seq.shape[0]
         with torch.no_grad():
             obs_cond = torch.flatten(obs_seq, start_dim=1) # (B, obs_horizon * obs_dim)
