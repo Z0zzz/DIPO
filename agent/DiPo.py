@@ -41,7 +41,7 @@ class DiPo(object):
                 diffusion_step_embed_dim=args.diffusion_step_embed_dim,
                 down_dims=args.unet_dims,
                 n_groups=args.n_groups,
-            )
+            ).to(device)
             
             self.num_train_diffusion_iters = args.n_timesteps
             self.num_eval_diffusion_iters = args.num_eval_diffusion_iters
