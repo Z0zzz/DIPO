@@ -140,8 +140,10 @@ def main(args=None):
     # Set random seed
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
-    env.seed(args.seed)
-
+    # env.seed(args.seed)
+    env.action_space.seed(args.seed)
+    env.observation_space.seed(args.seed)
+    
     memory_size = 1e6
     num_steps = args.num_steps
     start_steps = 10000
