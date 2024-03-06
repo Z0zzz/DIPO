@@ -87,7 +87,7 @@ def evaluate(env, agent, writer, steps):
     returns = np.zeros((episodes,), dtype=np.float32)
 
     for i in range(episodes):
-        state = env.reset()
+        state, _ = env.reset()
         episode_reward = 0.
         done = False
         while not done:
@@ -167,7 +167,7 @@ def main(args=None):
         episode_reward = 0.
         episode_steps = 0
         done = False
-        state = env.reset()
+        state, _ = env.reset()
         episodes += 1
         while not done:
             if start_steps > steps:

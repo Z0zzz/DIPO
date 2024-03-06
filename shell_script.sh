@@ -1,0 +1,1 @@
+python main.py --env_name HalfCheetah-v3 --num_steps 1000000 --n_timesteps 100 --cuda 0 --seed 0  --exp-name DIPO-OriginalCode-cheetah-debug  --action_gradient_steps 40  --ratio 0.08  --update_actor_target_every 2
