@@ -87,7 +87,7 @@ def evaluate(env, agent, writer, steps, device):
     returns = np.zeros((episodes,), dtype=np.float32)
 
     for i in range(episodes):
-        print("evaluating...")
+        print("evaluating...", flush=True)
         state, _ = env.reset()
         episode_reward = 0.
         done = False
