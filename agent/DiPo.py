@@ -113,8 +113,10 @@ class DiPo(object):
             obs_cond = obs_seq
             # initialize action from Guassian noise
             noisy_action_seq = torch.randn((B, self.pred_horizon, self.action_dim), device=obs_seq.device)
-            print(noisy_action_seq)
-            print(obs_cond)
+            
+            print("noisy_action_seq: ", noisy_action_seq.dtype)
+            print("obs_cond: ", obs_cond.dtype)
+            
             for k in self.noise_scheduler.timesteps:
                 # predict noise
                 noise_pred = self.actor(
