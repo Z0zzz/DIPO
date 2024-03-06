@@ -91,7 +91,7 @@ def evaluate(env, agent, writer, steps, device):
         episode_reward = 0.
         done = False
         while not done:
-            action = agent.sample_action(torch.tensor(state, dtype=torch.float64).unsqueeze(dim=0).to(device))
+            action = agent.sample_action(torch.tensor(state, dtype=torch.float32).unsqueeze(dim=0).to(device))
             next_state, reward, done, truncated,  _ = env.step(action)
             episode_reward += reward
             state = next_state
