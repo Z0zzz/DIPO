@@ -169,7 +169,7 @@ class DiPo(object):
         best_actions_new[:, self.act_horizon_start:self.act_horizon_end] = action_horizon_best_actions.detach().cpu().numpy()
         self.diffusion_memory.replace(idxs, best_actions_new)
 
-        return states, torch.tensor(best_actions_new)
+        return states, torch.tensor(best_actions_new).to(self.device)
 
     def train(self, iterations, batch_size=256, log_writer=None):
         for _ in range(iterations):
