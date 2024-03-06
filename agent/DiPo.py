@@ -179,7 +179,7 @@ class DiPo(object):
             """ Q Training """
             current_q1, current_q2 = self.critic(states, actions)
             
-            print("q values: ", current_q1.mean().item(), " ", current_q2.mean().item())
+            print("q values: ", current_q1.mean().item(), " ", current_q2.mean().item(), flush=True)
             
             next_pred_actions, next_actions = self.sample_action(next_states)
             next_states_flatten = torch.flatten(next_states, start_dim=1)
