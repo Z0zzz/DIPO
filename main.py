@@ -78,6 +78,16 @@ def readParser():
     parser.add_argument("--unet-dims", metavar='N', type=int, nargs='+', default=[64, 128, 256]) # ~4.5M params
     parser.add_argument("--n-groups", type=int, default=8)
 
+    parser.add_argument("--wandb-project-name", type=str, default="ManiSkill2-dev",
+                        help="the wandb's project name")
+    parser.add_argument("--wandb-entity", type=str, default=None,
+                        help="the entity (team) of wandb's project")
+    parser.add_argument("--exp-name", type=str, default=os.path.basename(__file__).rstrip(".py"),
+                        help="the name of this experiment")
+    parser.add_argument("--output-dir", type=str, default='output')
+    parser.add_argument("--track", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+                        help="if toggled, this experiment will be tracked with Weights and Biases")
+    
 
     return parser.parse_args()
 
@@ -118,12 +128,38 @@ def main(args=None):
         device = torch.device(int(args.cuda))
     else:
         device = "cpu"
+        
+    import datetime
+    ALGO_NAME="DIPO"
+    now = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
+    tag = '{:s}_{:d}'.format(now, args.seed)
+    if args.exp_name: tag += '_' + args.exp_name
+    log_name = os.path.join(args.env_name, ALGO_NAME, tag)
+    log_path = os.path.join(args.output_dir, log_name)
     
-    dir = "record"
-    # dir = "test"
-    log_dir = os.path.join(dir, f'{args.env_name}', f'policy_type={args.policy_type}', f'ratio={args.ratio}', f'seed={args.seed}')
-    writer = SummaryWriter(log_dir)
+    if args.track:
+        import wandb
 
+        wandb.init(
+            project=args.wandb_project_name,
+            entity=args.wandb_entity,
+            sync_tensorboard=True,
+            config=vars(args),
+            name=log_name.replace(os.path.sep, "__"),
+            monitor_gym=True,
+            save_code=True,
+        )
+
+
+    # dir = "record"
+    # # dir = "test"
+    # log_dir = os.path.join(dir, f'{args.env_name}', f'policy_type={args.policy_type}', f'ratio={args.ratio}', f'seed={args.seed}')
+    writer = SummaryWriter(log_dir)
+    writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+    )
+    
     # Initial environment
     env = gym.make(args.env_name)
     # env = SeqActionWrapper(env)
