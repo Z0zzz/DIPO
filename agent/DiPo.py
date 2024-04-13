@@ -117,6 +117,7 @@ class DiPo(object):
             print("state: ", obs_cond.shape)
             for k in self.noise_scheduler.timesteps:
                 # predict noise
+                print("timestep: ", k)
                 noise_pred = actor(
                     sample=noisy_action_seq,
                     timestep=k,
