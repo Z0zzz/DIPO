@@ -99,13 +99,11 @@ class Diffusion(nn.Module):
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
     def p_mean_variance(self, x, t, s):
+        x = x.unsqueeze(dim=1)
         print("actions: ", x.shape)
         print('time: ', t.shape)
         print("state: ", s.shape)
-        x = x.unsqueeze(dim=0)
-        t = t.unsqueeze(dim=0)
-        s = s.unsqueeze(dim=0)
-        x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, t, s))
+        x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, t, global_cond=s))
 
         if self.clip_denoised:
             x_recon.clamp_(-1., 1.)

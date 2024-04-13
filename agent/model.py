@@ -302,6 +302,7 @@ class ConditionalUnet1D(nn.Module):
 
         down_modules = nn.ModuleList([])
         for ind, (dim_in, dim_out) in enumerate(in_out):
+            print(f"dim in {dim_in}; dim out {dim_out}")
             is_last = ind >= (len(in_out) - 1)
             down_modules.append(nn.ModuleList([
                 ConditionalResidualBlock1D(
@@ -375,8 +376,10 @@ class ConditionalUnet1D(nn.Module):
         for idx, (resnet, resnet2, downsample) in enumerate(self.down_modules):
             x = resnet(x, global_feature)
             x = resnet2(x, global_feature)
+            print("forward sample: ", x.shape)
             h.append(x)
             x = downsample(x)
+            print("forward downsample: ", x.shape)
 
         for mid_module in self.mid_modules:
             x = mid_module(x, global_feature)
