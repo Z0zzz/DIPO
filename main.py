@@ -63,6 +63,17 @@ def readParser():
     parser.add_argument("--output-dir", type=str, default='output')
     parser.add_argument("--track", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                         help="if toggled, this experiment will be tracked with Weights and Biases")
+    
+    parser.add_argument("--obs-horizon", type=int, default=1)
+    # Seems not very important in ManiSkill, 1, 2, 4 work well
+    parser.add_argument("--act-horizon", type=int, default=1)
+    # Seems not very important in ManiSkill, 4, 8, 15 work well
+    parser.add_argument("--pred-horizon", type=int, default=16)
+    # 16->8 leads to worse performance, maybe it is like generate a half image; 16->32, improvement is very marginal
+    parser.add_argument("--diffusion-step-embed-dim", type=int, default=64) # not very important
+    parser.add_argument("--unet-dims", metavar='N', type=int, nargs='+', default=[64, 128, 256]) # ~4.5M params
+    parser.add_argument("--n-groups", type=int, default=8)
+    
     return parser.parse_args()
 
 
@@ -104,7 +115,7 @@ def main(args=None):
     if args is None:
         args = readParser()
 
-    device = torch.device(int(args.cuda))
+    device = torch.device(int(args.cuda)) if args.cuda != "cpu" else "cpu"
     
     ALGO_NAME="DIPO"
     now = datetime.datetime.now().strftime("%y%m%d-%H%M%S")

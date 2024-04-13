@@ -11,19 +11,25 @@ from agent.helpers import (cosine_beta_schedule,
                             extract,
                             Losses)
 
-from agent.model import Model
+from agent.model import Model, ConditionalUnet1D
 
 
 class Diffusion(nn.Module):
-    def __init__(self, state_dim, action_dim, noise_ratio,
+    def __init__(self, args, state_dim, action_dim, noise_ratio,
                  beta_schedule='vp', n_timesteps=1000,
                  loss_type='l2', clip_denoised=True, predict_epsilon=True):
         super(Diffusion, self).__init__()
 
         self.state_dim = state_dim
         self.action_dim = action_dim
-        self.model = Model(state_dim, action_dim)
-
+        # self.model = Model(state_dim, action_dim)
+        self.model = ConditionalUnet1D(
+                input_dim=action_dim, # act_horizon is not used (U-Net doesn't care)
+                global_cond_dim=state_dim, # obs_horizon * obs_dim
+                diffusion_step_embed_dim=args.diffusion_step_embed_dim,
+                down_dims=args.unet_dims,
+                n_groups=args.n_groups,
+            )
         self.max_noise_ratio = noise_ratio
         self.noise_ratio = noise_ratio
 
@@ -93,6 +99,12 @@ class Diffusion(nn.Module):
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
     def p_mean_variance(self, x, t, s):
+        print("actions: ", x.shape)
+        print('time: ', t.shape)
+        print("state: ", s.shape)
+        x = x.unsqueeze(dim=0)
+        t = t.unsqueeze(dim=0)
+        s = s.unsqueeze(dim=0)
         x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, t, s))
 
         if self.clip_denoised:
