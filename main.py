@@ -113,10 +113,10 @@ def main(args=None):
     if args is None:
         args = readParser()
 
-    if args.cuda:
-        device = torch.device(int(args.cuda))
-    else:
+    if args.cuda == "cpu":
         device = "cpu"
+    else:
+        device = torch.device(int(args.cuda))
         
     import datetime
     ALGO_NAME="DIPO"
