@@ -132,8 +132,8 @@ class Downsample1d(nn.Module):
 class Upsample1d(nn.Module):
     def __init__(self, dim):
         super().__init__()
-        self.conv = nn.ConvTranspose1d(dim, dim, 4, 2, 1)
-
+        # self.conv = nn.ConvTranspose1d(dim, dim, 4, 2, 1)
+        self.conv = nn.Conv1d(dim, dim, 3, 2, 1)
     def forward(self, x):
         return self.conv(x)
 
@@ -373,23 +373,29 @@ class ConditionalUnet1D(nn.Module):
 
         x = sample
         h = []
+        # print("### downmodules ###")
         for idx, (resnet, resnet2, downsample) in enumerate(self.down_modules):
             x = resnet(x, global_feature)
             x = resnet2(x, global_feature)
-            print("forward sample: ", x.shape)
+            # print("forward sample: ", x.shape)
             h.append(x)
             x = downsample(x)
-            print("forward downsample: ", x.shape)
+            # print("forward downsample: ", x.shape)
 
         for mid_module in self.mid_modules:
             x = mid_module(x, global_feature)
-
+        # print("### upmodules ###")
         for idx, (resnet, resnet2, upsample) in enumerate(self.up_modules):
-            x = torch.cat((x, h.pop()), dim=1)
+            # print("forward sample: ", x.shape)
+            hpoped = h.pop()
+            # print("h pop: ", hpoped.shape)
+            x = torch.cat((x, hpoped), dim=1)
+            # print("x concated: ", x.shape)
             x = resnet(x, global_feature)
             x = resnet2(x, global_feature)
             x = upsample(x)
-
+            # print("x upsampled: ", x.shape)
+        
         x = self.final_conv(x)
 
         # (B,C,T)
