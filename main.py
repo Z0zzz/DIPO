@@ -187,9 +187,10 @@ def main(args=None):
         episode_reward = 0.
         episode_steps = 0
         done = False
+        truncated = False
         state, _ = env.reset()
         episodes += 1
-        while not done:
+        while not (done or truncated):
             if start_steps > steps:
                 pred_horizon_actions = np.array([env.action_space.sample() for _ in range(args.pred_horizon)])
                 actions = pred_horizon_actions[act_horizon_start:act_horizon_end][0]  # execute only act_horizon actions
