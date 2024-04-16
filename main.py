@@ -52,6 +52,9 @@ def readParser():
     parser.add_argument('--ac_grad_norm', type=float, default=2.0, metavar='G',
                         help='actor and critic grad norm (default: 1.0)')
 
+    parser.add_argument("--num-train-diffusion-iters", type=int, default=100)
+    parser.add_argument("--num-eval-diffusion-iters", type=int, default=4)
+    
     parser.add_argument('--cuda', default='cuda:0',
                         help='run on CUDA (default: cuda:0)')
     parser.add_argument("--wandb-project-name", type=str, default="ManiSkill2-dev",
@@ -103,8 +106,11 @@ def evaluate(env, agent, writer, steps):
 def main(args=None):
     if args is None:
         args = readParser()
-
-    device = torch.device(int(args.cuda))
+        
+    if args.cuda == "cpu":
+        device = "cpu"
+    else:
+        device = torch.device(int(args.cuda))
     
     ALGO_NAME="DIPO"
     now = datetime.datetime.now().strftime("%y%m%d-%H%M%S")

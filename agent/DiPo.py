@@ -25,7 +25,7 @@ class DiPo(object):
 
         self.policy_type = args.policy_type
         if self.policy_type == 'Diffusion':
-            self.actor = Diffusion(state_dim=state_dim, action_dim=action_dim, noise_ratio=args.noise_ratio,
+            self.actor = Diffusion(args, state_dim=state_dim, action_dim=action_dim, noise_ratio=args.noise_ratio,
                                    beta_schedule=args.beta_schedule, n_timesteps=args.n_timesteps).to(device)
         elif self.policy_type == 'VAE':
             self.actor = VAE(state_dim=state_dim, action_dim=action_dim, device=device).to(device)

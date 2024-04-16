@@ -12,18 +12,28 @@ from agent.helpers import (cosine_beta_schedule,
                             Losses)
 
 from agent.model import Model
-
+from diffusers.schedulers.scheduling_ddim import DDIMScheduler
 
 class Diffusion(nn.Module):
-    def __init__(self, state_dim, action_dim, noise_ratio,
+    def __init__(self, args, state_dim, action_dim, noise_ratio,
                  beta_schedule='vp', n_timesteps=1000,
                  loss_type='l2', clip_denoised=True, predict_epsilon=True):
         super(Diffusion, self).__init__()
 
         self.state_dim = state_dim
         self.action_dim = action_dim
-        self.model = Model(state_dim, action_dim)
+        self.num_train_diffusion_iters = args.n_timesteps
+        self.num_eval_diffusion_iters = args.num_eval_diffusion_iters
 
+        self.model = Model(state_dim, action_dim)
+        self.noise_scheduler = DDIMScheduler(
+                num_train_timesteps=self.num_train_diffusion_iters,
+                beta_schedule='squaredcos_cap_v2', # has big impact on performance, try not to change
+                clip_sample=True, # clip output to [-1,1] to improve stability
+                prediction_type='epsilon' # predict noise (instead of denoised action)
+            )
+        self.noise_scheduler.set_timesteps(self.num_eval_diffusion_iters)
+            
         self.max_noise_ratio = noise_ratio
         self.noise_ratio = noise_ratio
 
@@ -70,52 +80,59 @@ class Diffusion(nn.Module):
 
     # ------------------------------------------ sampling ------------------------------------------#
 
-    def predict_start_from_noise(self, x_t, t, noise):
-        '''
-            if self.predict_epsilon, model output is (scaled) noise;
-            otherwise, model predicts x0 directly
-        '''
-        if self.predict_epsilon:
-            return (
-                    extract(self.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t -
-                    extract(self.sqrt_recipm1_alphas_cumprod, t, x_t.shape) * noise
-            )
-        else:
-            return noise
+    # def predict_start_from_noise(self, x_t, t, noise):
+    #     '''
+    #         if self.predict_epsilon, model output is (scaled) noise;
+    #         otherwise, model predicts x0 directly
+    #     '''
+    #     if self.predict_epsilon:
+    #         return (
+    #                 extract(self.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t -
+    #                 extract(self.sqrt_recipm1_alphas_cumprod, t, x_t.shape) * noise
+    #         )
+    #     else:
+    #         return noise
 
-    def q_posterior(self, x_start, x_t, t):
-        posterior_mean = (
-                extract(self.posterior_mean_coef1, t, x_t.shape) * x_start +
-                extract(self.posterior_mean_coef2, t, x_t.shape) * x_t
-        )
-        posterior_variance = extract(self.posterior_variance, t, x_t.shape)
-        posterior_log_variance_clipped = extract(self.posterior_log_variance_clipped, t, x_t.shape)
-        return posterior_mean, posterior_variance, posterior_log_variance_clipped
+    # def q_posterior(self, x_start, x_t, t):
+    #     posterior_mean = (
+    #             extract(self.posterior_mean_coef1, t, x_t.shape) * x_start +
+    #             extract(self.posterior_mean_coef2, t, x_t.shape) * x_t
+    #     )
+    #     posterior_variance = extract(self.posterior_variance, t, x_t.shape)
+    #     posterior_log_variance_clipped = extract(self.posterior_log_variance_clipped, t, x_t.shape)
+    #     return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
-    def p_mean_variance(self, x, t, s):
-        x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, t, s))
+    # def p_mean_variance(self, x, t, s):
+    #     x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, t, s))
 
-        if self.clip_denoised:
-            x_recon.clamp_(-1., 1.)
-        else:
-            assert RuntimeError()
+    #     if self.clip_denoised:
+    #         x_recon.clamp_(-1., 1.)
+    #     else:
+    #         assert RuntimeError()
 
-        model_mean, posterior_variance, posterior_log_variance = self.q_posterior(x_start=x_recon, x_t=x, t=t)
-        return model_mean, posterior_variance, posterior_log_variance
+    #     model_mean, posterior_variance, posterior_log_variance = self.q_posterior(x_start=x_recon, x_t=x, t=t)
+    #     return x_recon, model_mean, posterior_variance, posterior_log_variance
 
     @torch.no_grad()
     def p_sample(self, x, t, s):
         b, *_, device = *x.shape, x.device
+        
+        noise=self.model(x, t, s)
+        
+        # x_recon, model_mean, _, model_log_variance = self.p_mean_variance(x=x, t=t, s=s)
 
-        model_mean, _, model_log_variance = self.p_mean_variance(x=x, t=t, s=s)
-
-        noise = torch.randn_like(x)
+        # noise = torch.randn_like(x)
         # no noise when t == 0
-        nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
+        # nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
 
-        return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise * self.noise_ratio
-
-
+        # return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise * self.noise_ratio
+        noisy_action_seq = self.noise_scheduler.step(
+                    model_output=noise,
+                    timestep=t[0].item(),   # t is a sequence of a single integer
+                    sample=x,
+            ).prev_sample
+        return noisy_action_seq
+    
     @torch.no_grad()
     def p_sample_loop(self, state, shape):
         device = self.betas.device
@@ -143,11 +160,13 @@ class Diffusion(nn.Module):
         if noise is None:
             noise = torch.randn_like(x_start)
 
-        sample = (
-                extract(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start +
-                extract(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise
-        )
-
+        # sample = (
+        #         extract(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start +
+        #         extract(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise
+        # )
+        
+        sample = self.noise_scheduler.add_noise(
+            x_start, noise, t)
         return sample
 
     def p_losses(self, x_start, state, t, weights=1.0):
