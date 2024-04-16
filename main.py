@@ -7,6 +7,8 @@ from agent.replay_memory import ReplayMemory, DiffusionMemory
 import datetime
 from torch.utils.tensorboard import SummaryWriter
 
+from diffusers.training_utils import EMAModel
+
 import gymnasium as gym
 import os
 
@@ -103,8 +105,11 @@ def evaluate(env, agent, writer, steps):
 def main(args=None):
     if args is None:
         args = readParser()
-
-    device = torch.device(int(args.cuda))
+        
+    if args.cuda == "cpu":
+        device = "cpu"
+    else:
+        device = torch.device(int(args.cuda))
     
     ALGO_NAME="DIPO"
     now = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
@@ -161,7 +166,11 @@ def main(args=None):
     diffusion_memory = DiffusionMemory(state_size, action_size, memory_size, device)
 
     agent = DiPo(args, state_size, env.action_space, memory, diffusion_memory, device)
-
+    
+    # add ema model
+    ema = EMAModel(parameters=agent.actor.model.parameters(), power=0.75)
+    ema_agent = DiPo(args, state_size, env.action_space, memory, diffusion_memory, device)
+    
     steps = 0
     episodes = 0
 
@@ -178,7 +187,7 @@ def main(args=None):
             else:
                 action = agent.sample_action(state, eval=False)
             next_state, reward, done, truncated,  _ = env.step(action)
-            # print("step: ", steps)                
+
             mask = 0.0 if done else args.gamma
 
             steps += 1
@@ -188,10 +197,11 @@ def main(args=None):
             agent.append_memory(state, action, reward, next_state, mask)
 
             if steps >= start_steps:
-                agent.train(updates_per_step, batch_size=batch_size, global_step=steps, log_writer=writer)
+                agent.train(updates_per_step, batch_size=batch_size, global_step=steps, log_writer=writer, ema = ema)
 
             if steps % eval_interval == 0:
-                evaluate(env, agent, writer, steps)
+                ema.copy_to(ema_agent.actor.model.parameters())
+                evaluate(env, ema_agent, writer, steps)
                 # self.save_models()
                 done =True
 
