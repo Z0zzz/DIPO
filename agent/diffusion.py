@@ -13,6 +13,7 @@ from agent.helpers import (cosine_beta_schedule,
 
 from agent.model import Model
 from diffusers.schedulers.scheduling_ddim import DDIMScheduler
+from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
 class Diffusion(nn.Module):
     def __init__(self, args, state_dim, action_dim, noise_ratio,
@@ -22,18 +23,22 @@ class Diffusion(nn.Module):
 
         self.state_dim = state_dim
         self.action_dim = action_dim
+        
         self.num_train_diffusion_iters = args.n_timesteps
-        self.num_eval_diffusion_iters = args.num_eval_diffusion_iters
-        self.n_timesteps = args.num_eval_diffusion_iters
+        self.n_timesteps = args.n_timesteps
+        # self.num_eval_diffusion_iters = args.num_eval_diffusion_iters
+        # self.n_timesteps = args.num_eval_diffusion_iters
+        print("num_train_diffusion_iters: ", self.num_train_diffusion_iters)
+        print("n_timesteps: ", self.n_timesteps)
         
         self.model = Model(state_dim, action_dim)
-        self.noise_scheduler = DDIMScheduler(
+        self.noise_scheduler = DDPMScheduler(
                 num_train_timesteps=self.num_train_diffusion_iters,
                 beta_schedule='squaredcos_cap_v2', # has big impact on performance, try not to change
                 clip_sample=True, # clip output to [-1,1] to improve stability
                 prediction_type='epsilon' # predict noise (instead of denoised action)
             )
-        self.noise_scheduler.set_timesteps(self.num_eval_diffusion_iters)
+        # self.noise_scheduler.set_timesteps(self.num_eval_diffusion_iters)
             
         self.max_noise_ratio = noise_ratio
         self.noise_ratio = noise_ratio
