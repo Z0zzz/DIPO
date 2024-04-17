@@ -24,7 +24,8 @@ class Diffusion(nn.Module):
         self.action_dim = action_dim
         self.num_train_diffusion_iters = args.n_timesteps
         self.num_eval_diffusion_iters = args.num_eval_diffusion_iters
-
+        self.n_timesteps = args.num_eval_diffusion_iters
+        
         self.model = Model(state_dim, action_dim)
         self.noise_scheduler = DDIMScheduler(
                 num_train_timesteps=self.num_train_diffusion_iters,
@@ -48,7 +49,7 @@ class Diffusion(nn.Module):
         alphas_cumprod = torch.cumprod(alphas, axis=0)
         alphas_cumprod_prev = torch.cat([torch.ones(1), alphas_cumprod[:-1]])
 
-        self.n_timesteps = int(n_timesteps)
+        # self.n_timesteps = int(n_timesteps)
         self.clip_denoised = clip_denoised
         self.predict_epsilon = predict_epsilon
 
