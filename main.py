@@ -90,7 +90,6 @@ def evaluate(env, agent, writer, steps, device):
         count = 0
         print("episode: ", i, flush=True)
         while not (done or truncated):
-            print("evaluation device: ", device)
             pred_actions, action = agent.sample_action(torch.tensor(state, dtype=torch.float32).unsqueeze(dim=0).to(device))
             action = np.squeeze(action, axis=None)
             next_state, reward, done, truncated,  _ = env.step(action)

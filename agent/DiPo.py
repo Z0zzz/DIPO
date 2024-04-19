@@ -77,7 +77,7 @@ class DiPo(object):
 
     def sample_action(self, state, eval=False):
         state = state.reshape(1, -1).to(self.device)
-        print("sample action state shape: ", state.shape)
+
         pred_actions, action = self.actor(state, eval)
         
         pred_actions = pred_actions.cpu().data.numpy()
