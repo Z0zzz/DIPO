@@ -67,7 +67,9 @@ class DiPo(object):
         else:
             self.action_scale = (action_space.high - action_space.low) / 2.
             self.action_bias = (action_space.high + action_space.low) / 2.
-
+        print("action scale: ", self.action_scale)
+        print("action bias: ", self.action_bias)
+        
     def append_memory(self, state, action, reward, next_state, mask, pred_horizon_actions):
         action = (action - self.action_bias) / self.action_scale
         
@@ -79,8 +81,8 @@ class DiPo(object):
 
         pred_actions, action = self.actor(state, eval)
         
-        pred_actions = pred_actions.cpu().data.numpy().flatten()
-        action = action.cpu().data.numpy().flatten()
+        pred_actions = pred_actions.cpu().data.numpy()
+        action = action.cpu().data.numpy()
         
         pred_actions = pred_actions.clip(-1,1)
         action = action.clip(-1, 1)
