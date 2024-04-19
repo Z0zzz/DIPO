@@ -11,19 +11,33 @@ from agent.helpers import (cosine_beta_schedule,
                             extract,
                             Losses)
 
-from agent.model import Model
+from agent.model import Model, ConditionalUnet1D
 
 
 class Diffusion(nn.Module):
-    def __init__(self, state_dim, action_dim, noise_ratio,
+    def __init__(self, args, state_dim, action_dim, noise_ratio,
                  beta_schedule='vp', n_timesteps=1000,
                  loss_type='l2', clip_denoised=True, predict_epsilon=True):
         super(Diffusion, self).__init__()
 
         self.state_dim = state_dim
         self.action_dim = action_dim
-        self.model = Model(state_dim, action_dim)
-
+        
+        self.obs_horizon = args.obs_horizon
+        self.act_horizon = args.act_horizon
+        self.pred_horizon = args.pred_horizon
+        self.act_horizon_start = args.obs_horizon - 1
+        self.act_horizon_end = self.act_horizon_start + args.act_horizon
+        
+        # self.model = Model(state_dim, action_dim)
+        self.model = ConditionalUnet1D(
+                input_dim=action_dim, # act_horizon is not used (U-Net doesn't care)
+                global_cond_dim=state_dim, # obs_horizon * obs_dim
+                diffusion_step_embed_dim=args.diffusion_step_embed_dim,
+                down_dims=args.unet_dims,
+                n_groups=args.n_groups,
+            )
+        
         self.max_noise_ratio = noise_ratio
         self.noise_ratio = noise_ratio
 
@@ -93,7 +107,7 @@ class Diffusion(nn.Module):
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
     def p_mean_variance(self, x, t, s):
-        x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, t, s))
+        x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, t[0].item(), s))
 
         if self.clip_denoised:
             x_recon.clamp_(-1., 1.)
@@ -133,7 +147,7 @@ class Diffusion(nn.Module):
         self.noise_ratio = 0 if eval else self.max_noise_ratio
         
         batch_size = state.shape[0]
-        shape = (batch_size, self.action_dim)
+        shape = (batch_size, self.pred_horizon, self.action_dim)
         action = self.p_sample_loop(state, shape)
         return action.clamp_(-1., 1.)
 

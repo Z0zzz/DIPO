@@ -63,8 +63,20 @@ def readParser():
     parser.add_argument("--output-dir", type=str, default='output')
     parser.add_argument("--track", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                         help="if toggled, this experiment will be tracked with Weights and Biases")
+    
+    parser.add_argument("--obs-horizon", type=int, default=1)
+    # Seems not very important in ManiSkill, 1, 2, 4 work well
+    parser.add_argument("--act-horizon", type=int, default=1)
+    # Seems not very important in ManiSkill, 4, 8, 15 work well
+    parser.add_argument("--pred-horizon", type=int, default=16)
+    # 16->8 leads to worse performance, maybe it is like generate a half image; 16->32, improvement is very marginal
+    parser.add_argument("--diffusion-step-embed-dim", type=int, default=64) # not very important
+    parser.add_argument("--unet-dims", metavar='N', type=int, nargs='+', default=[64, 128, 256]) # ~4.5M params
+    parser.add_argument("--n-groups", type=int, default=8)
+    
     return parser.parse_args()
 
+    
 
 def evaluate(env, agent, writer, steps):
     episodes = 10
@@ -78,7 +90,8 @@ def evaluate(env, agent, writer, steps):
         count = 0
         print("episode: ", i, flush=True)
         while not (done or truncated):
-            action = agent.sample_action(state, eval=True)
+            pred_actions, action = agent.sample_action(torch.tensor(state, dtype=torch.float32).unsqueeze(dim=0).to(device))
+            action = np.squeeze(action.detach().cpu().numpy(), axis=None)
             next_state, reward, done, truncated,  _ = env.step(action)
             count += 1
             episode_reward += reward
@@ -104,7 +117,7 @@ def main(args=None):
     if args is None:
         args = readParser()
 
-    device = torch.device(int(args.cuda))
+    device = torch.device(int(args.cuda)) if args.cuda != "cpu" else "cpu"
     
     ALGO_NAME="DIPO"
     now = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
@@ -158,13 +171,15 @@ def main(args=None):
     log_interval = 10
     
     memory = ReplayMemory(state_size, action_size, memory_size, device)
-    diffusion_memory = DiffusionMemory(state_size, action_size, memory_size, device)
+    diffusion_memory = DiffusionMemory(state_size, action_size, args.pred_horizon, memory_size, device)
 
     agent = DiPo(args, state_size, env.action_space, memory, diffusion_memory, device)
 
     steps = 0
     episodes = 0
-
+    act_horizon_start = args.obs_horizon - 1
+    act_horizon_end = act_horizon_start + args.act_horizon
+    
     while steps < num_steps:
         episode_reward = 0.
         episode_steps = 0
@@ -174,18 +189,20 @@ def main(args=None):
         episodes += 1
         while not (done or truncated):
             if start_steps > steps:
-                action = env.action_space.sample()
+                pred_horizon_actions = np.array([env.action_space.sample() for _ in range(args.pred_horizon)])
+                actions = pred_horizon_actions[act_horizon_start:act_horizon_end][0]  # execute only act_horizon actions
+                actions = np.squeeze(actions, axis=None)
             else:
-                action = agent.sample_action(state, eval=False)
-            next_state, reward, done, truncated,  _ = env.step(action)
-            # print("step: ", steps)                
+                pred_actions, actions = agent.sample_action(torch.tensor(state, dtype=torch.float32).unsqueeze(dim=0).to(device))
+                actions = np.squeeze(actions.detach().cpu().numpy(), axis=None)
+            next_state, reward, done, truncated,  _ = env.step(actions)
             mask = 0.0 if done else args.gamma
 
             steps += 1
             episode_steps += 1
             episode_reward += reward
 
-            agent.append_memory(state, action, reward, next_state, mask)
+            agent.append_memory(state, actions, reward, next_state, mask, pred_horizon_actions)
 
             if steps >= start_steps:
                 agent.train(updates_per_step, batch_size=batch_size, global_step=steps, log_writer=writer)

@@ -22,10 +22,15 @@ class DiPo(object):
                  device,
                  ):
         action_dim = np.prod(action_space.shape)
-
+        self.obs_horizon = args.obs_horizon
+        self.act_horizon = args.act_horizon
+        self.pred_horizon = args.pred_horizon
+        self.act_horizon_start = args.obs_horizon - 1
+        self.act_horizon_end = self.act_horizon_start + args.act_horizon
+        
         self.policy_type = args.policy_type
         if self.policy_type == 'Diffusion':
-            self.actor = Diffusion(state_dim=state_dim, action_dim=action_dim, noise_ratio=args.noise_ratio,
+            self.actor = Diffusion(args, state_dim=state_dim, action_dim=action_dim, noise_ratio=args.noise_ratio,
                                    beta_schedule=args.beta_schedule, n_timesteps=args.n_timesteps).to(device)
         elif self.policy_type == 'VAE':
             self.actor = VAE(state_dim=state_dim, action_dim=action_dim, device=device).to(device)
@@ -46,7 +51,7 @@ class DiPo(object):
         self.actor_target = copy.deepcopy(self.actor)
         self.update_actor_target_every = args.update_actor_target_every
 
-        self.critic = Critic(state_dim, action_dim).to(device)
+        self.critic = Critic(state_dim, action_dim*self.act_horizon).to(device)
         self.critic_target = copy.deepcopy(self.critic)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=args.critic_lr, eps=1e-5)
 
@@ -63,11 +68,11 @@ class DiPo(object):
             self.action_scale = (action_space.high - action_space.low) / 2.
             self.action_bias = (action_space.high + action_space.low) / 2.
 
-    def append_memory(self, state, action, reward, next_state, mask):
+    def append_memory(self, state, action, reward, next_state, mask, pred_horizon_actions):
         action = (action - self.action_bias) / self.action_scale
         
         self.memory.append(state, action, reward, next_state, mask)
-        self.diffusion_memory.append(state, action)
+        self.diffusion_memory.append(state, pred_horizon_actions)
 
     def sample_action(self, state, eval=False):
         state = torch.FloatTensor(state.reshape(1, -1)).to(self.device)
@@ -79,13 +84,21 @@ class DiPo(object):
 
     def action_gradient(self, batch_size, log_writer):
         states, best_actions, idxs = self.diffusion_memory.sample(batch_size)
-
-        actions_optim = torch.optim.Adam([best_actions], lr=self.action_lr, eps=1e-5)
-
+        
+        action_horizon_best_actions = best_actions.detach().clone()[:, self.act_horizon_start:self.act_horizon_end]
+        # DIPO: reshape to pass to critic
+        actions_optim = torch.optim.Adam([action_horizon_best_actions], lr=self.action_lr, eps=1e-5)
+        
+        # actions_optim = torch.optim.Adam([best_actions], lr=self.action_lr, eps=1e-5)
 
         for i in range(self.action_gradient_steps):
-            best_actions.requires_grad_(True)
-            q1, q2 = self.critic(states, best_actions)
+            action_horizon_best_actions.requires_grad_(True)
+
+            # DIPO: reshape to process in critic
+            states_ = torch.flatten(states, start_dim=1)
+            action_horizon_best_actions_ = torch.flatten(action_horizon_best_actions, start_dim=1)
+
+            q1, q2 = self.critic(states_, action_horizon_best_actions_)
             loss = -torch.min(q1, q2)
 
             actions_optim.zero_grad()
@@ -96,17 +109,14 @@ class DiPo(object):
 
             actions_optim.step()
 
-            best_actions.requires_grad_(False)
-            best_actions.clamp_(-1., 1.)
+            action_horizon_best_actions.requires_grad_(False)  
+            action_horizon_best_actions.clamp_(-1., 1.)
 
-        # if self.step % 10 == 0:
-        #     log_writer.add_scalar('Action Grad Norm', actions_grad_norms.max().item(), self.step)
+        best_actions_new = best_actions.detach().cpu().numpy()
+        best_actions_new[:, self.act_horizon_start:self.act_horizon_end] = action_horizon_best_actions.detach().cpu().numpy()
+        self.diffusion_memory.replace(idxs, best_actions_new)
 
-        best_actions = best_actions.detach()
-
-        self.diffusion_memory.replace(idxs, best_actions.cpu().numpy())
-
-        return states, best_actions
+        return states, torch.tensor(best_actions_new).to(self.device)
 
     def train(self, iterations, batch_size=256, global_step = 0, log_writer=None):
         for _ in range(iterations):
@@ -116,8 +126,14 @@ class DiPo(object):
             """ Q Training """
             current_q1, current_q2 = self.critic(states, actions)
 
-            next_actions = self.actor_target(next_states, eval=False)
-            target_q1, target_q2 = self.critic_target(next_states, next_actions)
+            next_actions = self.actor_target(next_states, self.actor_target)
+            print("next action: ", next_actions.shape)
+            next_states_flatten = torch.flatten(next_states, start_dim=1)
+            
+            next_actions = torch.flatten(next_actions, start_dim=1)
+            print("next action: ", next_actions.shape)
+            
+            target_q1, target_q2 = self.critic_target(next_states_flatten, next_actions)
             target_q = torch.min(target_q1, target_q2)
 
             target_q = (rewards + masks * target_q).detach()
