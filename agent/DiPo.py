@@ -185,9 +185,10 @@ class DiPo(object):
             print("q values: ", current_q1.mean().item(), " ", current_q2.mean().item(), flush=True)
             
             next_pred_actions, next_actions = self.sample_action(next_states, self.actor_target)
+            print("next actions: ", next_actions.shape)
             next_states_flatten = torch.flatten(next_states, start_dim=1)
             next_actions = torch.flatten(next_actions, start_dim=1)
-
+            print("next actions: ", next_actions.shape)
             target_q1, target_q2 = self.critic_target(next_states_flatten, next_actions)
             target_q = torch.min(target_q1, target_q2)
 
