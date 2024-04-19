@@ -149,7 +149,7 @@ class Diffusion(nn.Module):
         batch_size = state.shape[0]
         shape = (batch_size, self.pred_horizon, self.action_dim)
         action = self.p_sample_loop(state, shape)
-        return action.clamp_(-1., 1.)[:, self.act_horizon_start:self.act_horizon_end]
+        return (action.clamp_(-1., 1.), action.clamp_(-1., 1.)[:, self.act_horizon_start:self.act_horizon_end])
 
     # ------------------------------------------ training ------------------------------------------#
 

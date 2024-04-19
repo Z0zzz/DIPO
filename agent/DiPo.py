@@ -77,10 +77,13 @@ class DiPo(object):
     def sample_action(self, state, eval=False):
         state = torch.FloatTensor(state.reshape(1, -1)).to(self.device)
 
-        action = self.actor(state, eval).cpu().data.numpy().flatten()
+        pred_actions, action = self.actor(state, eval).cpu().data.numpy().flatten()
+        pred_actions = pred_actions.clip(-1,1)
         action = action.clip(-1, 1)
+        
+        pred_actions = pred_actions * self.action_scale + self.action_bias
         action = action * self.action_scale + self.action_bias
-        return action
+        return pred_actions, action
 
     def action_gradient(self, batch_size, log_writer):
         states, best_actions, idxs = self.diffusion_memory.sample(batch_size)
@@ -126,7 +129,7 @@ class DiPo(object):
             """ Q Training """
             current_q1, current_q2 = self.critic(states, actions)
 
-            next_actions = self.actor_target(next_states, self.actor_target)
+            _, next_actions = self.actor_target(next_states, self.actor_target)
             print("next action: ", next_actions.shape)
             next_states_flatten = torch.flatten(next_states, start_dim=1)
             

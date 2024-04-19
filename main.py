@@ -78,7 +78,7 @@ def readParser():
 
     
 
-def evaluate(env, agent, writer, steps):
+def evaluate(env, agent, writer, steps, device):
     episodes = 10
     returns = np.zeros((episodes,), dtype=np.float32)
 
@@ -208,7 +208,7 @@ def main(args=None):
                 agent.train(updates_per_step, batch_size=batch_size, global_step=steps, log_writer=writer)
 
             if steps % eval_interval == 0:
-                evaluate(env, agent, writer, steps)
+                evaluate(env, agent, writer, steps, device)
                 # self.save_models()
                 done =True
 
