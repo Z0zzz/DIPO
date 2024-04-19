@@ -92,7 +92,8 @@ def evaluate(env, agent, writer, steps, device):
         while not (done or truncated):
             print("evaluation device: ", device)
             pred_actions, action = agent.sample_action(torch.tensor(state, dtype=torch.float32).unsqueeze(dim=0).to(device))
-            action = np.squeeze(action.detach().cpu().numpy(), axis=None)
+            action = np.squeeze(action, axis=None)
+            print("eval action: ", action.shape)
             next_state, reward, done, truncated,  _ = env.step(action)
             count += 1
             episode_reward += reward
@@ -195,7 +196,7 @@ def main(args=None):
                 actions = np.squeeze(actions, axis=None)
             else:
                 pred_actions, actions = agent.sample_action(torch.tensor(state, dtype=torch.float32).unsqueeze(dim=0).to(device))
-                actions = np.squeeze(actions.detach().cpu().numpy(), axis=None)
+                actions = np.squeeze(actions, axis=None)
             next_state, reward, done, truncated,  _ = env.step(actions)
             mask = 0.0 if done else args.gamma
 
