@@ -196,7 +196,7 @@ def main(args=None):
                 actions = pred_horizon_actions[act_horizon_start:act_horizon_end][0]  # execute only act_horizon actions
                 actions = np.squeeze(actions, axis=None)
             else:
-                pred_actions, actions = agent.sample_action(torch.tensor(state, dtype=torch.float32).unsqueeze(dim=0).to(device))
+                pred_horizon_actions, actions = agent.sample_action(torch.tensor(state, dtype=torch.float32).unsqueeze(dim=0).to(device))
                 actions = np.squeeze(actions.detach().cpu().numpy(), axis=None)
             next_state, reward, done, truncated,  _ = env.step(actions)
 
