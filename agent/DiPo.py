@@ -77,11 +77,17 @@ class DiPo(object):
     def sample_action(self, state, eval=False):
         state = state.reshape(1, -1).to(self.device)
 
-        pred_actions, action = self.actor(state, eval).cpu().data.numpy().flatten()
+        pred_actions, action = self.actor(state, eval)
+        
+        pred_actions = pred_actions.cpu().data.numpy().flatten()
+        action = action.cpu().data.numpy().flatten()
+        
         pred_actions = pred_actions.clip(-1,1)
         action = action.clip(-1, 1)
+        
         pred_actions = pred_actions * self.action_scale + self.action_bias
         action = action * self.action_scale + self.action_bias
+        
         return pred_actions, action
 
     def action_gradient(self, batch_size, log_writer):
