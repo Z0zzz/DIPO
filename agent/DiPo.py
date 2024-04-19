@@ -75,7 +75,7 @@ class DiPo(object):
         self.diffusion_memory.append(state, pred_horizon_actions)
 
     def sample_action(self, state, eval=False):
-        state = torch.FloatTensor(state.reshape(1, -1)).to(self.device)
+        state = state.reshape(1, -1).to(self.device)
 
         pred_actions, action = self.actor(state, eval).cpu().data.numpy().flatten()
         pred_actions = pred_actions.clip(-1,1)
