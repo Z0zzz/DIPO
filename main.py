@@ -206,7 +206,7 @@ def main(args=None):
             episode_steps += 1
             episode_reward += reward
 
-            agent.append_memory(state, actions, reward, next_state, mask, pred_horizon_actions)
+            agent.append_memory(state, actions, reward, next_state, mask, pred_horizon_actions.cpu())
 
             if steps >= start_steps:
                 agent.train(updates_per_step, global_step = steps, batch_size=batch_size, log_writer=writer)
