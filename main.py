@@ -197,6 +197,7 @@ def main(args=None):
                 actions = np.squeeze(actions, axis=None)
             else:
                 pred_horizon_actions, actions = agent.sample_action(torch.tensor(state, dtype=torch.float32).unsqueeze(dim=0).to(device))
+                pred_horizon_actions = pred_horizon_actions.cpu()
                 actions = np.squeeze(actions.detach().cpu().numpy(), axis=None)
             next_state, reward, done, truncated,  _ = env.step(actions)
 
@@ -206,7 +207,7 @@ def main(args=None):
             episode_steps += 1
             episode_reward += reward
 
-            agent.append_memory(state, actions, reward, next_state, mask, pred_horizon_actions.cpu())
+            agent.append_memory(state, actions, reward, next_state, mask, pred_horizon_actions)
 
             if steps >= start_steps:
                 agent.train(updates_per_step, global_step = steps, batch_size=batch_size, log_writer=writer)
