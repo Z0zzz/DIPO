@@ -90,6 +90,7 @@ def evaluate(env, agent, writer, steps, device):
         count = 0
         print("episode: ", i, flush=True)
         while not (done or truncated):
+            print("evaluation device: ", device)
             pred_actions, action = agent.sample_action(torch.tensor(state, dtype=torch.float32).unsqueeze(dim=0).to(device))
             action = np.squeeze(action.detach().cpu().numpy(), axis=None)
             next_state, reward, done, truncated,  _ = env.step(action)
@@ -118,7 +119,7 @@ def main(args=None):
         args = readParser()
 
     device = torch.device(int(args.cuda)) if args.cuda != "cpu" else "cpu"
-    
+    print("main device: ", device)
     ALGO_NAME="DIPO"
     now = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
     tag = '{:s}_{:d}'.format(now, args.seed)

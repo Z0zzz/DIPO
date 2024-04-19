@@ -60,7 +60,7 @@ class DiPo(object):
         self.action_lr = args.action_lr
 
         self.device = device
-
+        print("dipo device: ", self.device)
         if action_space is None:
             self.action_scale = 1.
             self.action_bias = 0.
@@ -80,7 +80,6 @@ class DiPo(object):
         pred_actions, action = self.actor(state, eval).cpu().data.numpy().flatten()
         pred_actions = pred_actions.clip(-1,1)
         action = action.clip(-1, 1)
-        
         pred_actions = pred_actions * self.action_scale + self.action_bias
         action = action * self.action_scale + self.action_bias
         return pred_actions, action
