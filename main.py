@@ -93,7 +93,6 @@ def evaluate(env, agent, writer, steps, device):
             print("evaluation device: ", device)
             pred_actions, action = agent.sample_action(torch.tensor(state, dtype=torch.float32).unsqueeze(dim=0).to(device))
             action = np.squeeze(action, axis=None)
-            print("eval action: ", action.shape)
             next_state, reward, done, truncated,  _ = env.step(action)
             count += 1
             episode_reward += reward

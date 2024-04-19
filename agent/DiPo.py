@@ -60,15 +60,14 @@ class DiPo(object):
         self.action_lr = args.action_lr
 
         self.device = device
-        print("dipo device: ", self.device)
+
         if action_space is None:
             self.action_scale = 1.
             self.action_bias = 0.
         else:
             self.action_scale = (action_space.high - action_space.low) / 2.
             self.action_bias = (action_space.high + action_space.low) / 2.
-        print("action scale: ", self.action_scale)
-        print("action bias: ", self.action_bias)
+        
         
     def append_memory(self, state, action, reward, next_state, mask, pred_horizon_actions):
         action = (action - self.action_bias) / self.action_scale
@@ -78,7 +77,7 @@ class DiPo(object):
 
     def sample_action(self, state, eval=False):
         state = state.reshape(1, -1).to(self.device)
-
+        print("sample action state shape: ", state.shape)
         pred_actions, action = self.actor(state, eval)
         
         pred_actions = pred_actions.cpu().data.numpy()
@@ -137,11 +136,9 @@ class DiPo(object):
             current_q1, current_q2 = self.critic(states, actions)
 
             _, next_actions = self.actor_target(next_states, self.actor_target)
-            print("next action: ", next_actions.shape)
             next_states_flatten = torch.flatten(next_states, start_dim=1)
             
             next_actions = torch.flatten(next_actions, start_dim=1)
-            print("next action: ", next_actions.shape)
             
             target_q1, target_q2 = self.critic_target(next_states_flatten, next_actions)
             target_q = torch.min(target_q1, target_q2)
