@@ -155,7 +155,6 @@ def main(args=None):
     
     state_size = int(np.prod(env.observation_space.shape))
     action_size = int(np.prod(env.action_space.shape))
-    print("state size: ", action_size)
 
     # Set random seed
     torch.manual_seed(args.seed)

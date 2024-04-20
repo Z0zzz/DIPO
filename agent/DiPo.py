@@ -113,11 +113,9 @@ class DiPo(object):
             obs_cond = obs_seq
             # initialize action from Guassian noise
             noisy_action_seq = torch.randn((B, self.pred_horizon, self.action_dim), device=self.device)
-            print("noisy_action_seq: ", noisy_action_seq.shape)
-            print("state: ", obs_cond.shape)
+
             for k in self.noise_scheduler.timesteps:
                 # predict noise
-                print("timestep: ", k)
                 noise_pred = actor(
                     sample=noisy_action_seq,
                     timestep=k,
@@ -182,13 +180,10 @@ class DiPo(object):
             """ Q Training """
             current_q1, current_q2 = self.critic(states, actions)
             
-            print("q values: ", current_q1.mean().item(), " ", current_q2.mean().item(), flush=True)
             
             next_pred_actions, next_actions = self.sample_action(next_states, self.actor_target)
-            print("next actions: ", next_actions.shape)
             next_states_flatten = torch.flatten(next_states, start_dim=1)
             next_actions = torch.flatten(next_actions, start_dim=1)
-            print("next actions: ", next_actions.shape)
             target_q1, target_q2 = self.critic_target(next_states_flatten, next_actions)
             target_q = torch.min(target_q1, target_q2)
 
@@ -198,9 +193,7 @@ class DiPo(object):
             q2_loss = F.mse_loss(current_q2, target_q)
             
             critic_loss = q1_loss + q2_loss
-            
-            print("q loss: ", critic_loss.item())
-            
+                        
             self.critic_optimizer.zero_grad()
             critic_loss.backward()
             if self.ac_grad_norm > 0:
@@ -208,8 +201,6 @@ class DiPo(object):
                 # if self.step % 10 == 0:
                 #     log_writer.add_scalar('Critic Grad Norm', critic_grad_norms.max().item(), self.step)
             self.critic_optimizer.step()
-            print("optimizer step")
-            import pdb
             # pdb.set_trace()
             """ Policy Training """
             states, best_actions = self.action_gradient(batch_size, log_writer)
