@@ -6,6 +6,7 @@ from agent.DiPo import DiPo
 from agent.replay_memory import ReplayMemory, DiffusionMemory
 import datetime
 from torch.utils.tensorboard import SummaryWriter
+from diffusers.training_utils import EMAModel
 
 import gymnasium as gym
 import os
@@ -168,6 +169,9 @@ def main(args=None):
 
     agent = DiPo(args, state_size, env.action_space, memory, diffusion_memory, device)
 
+    ema = EMAModel(parameters=agent.actor.model.parameters(), power=0.75)
+    ema_agent = DiPo(args, state_size, env.action_space, memory, diffusion_memory, device)
+    
     steps = 0
     episodes = 0
 
@@ -194,10 +198,12 @@ def main(args=None):
             agent.append_memory(state, action, reward, next_state, mask)
 
             if steps >= start_steps:
-                agent.train(updates_per_step, batch_size=batch_size, global_step=steps, log_writer=writer)
+                agent.train(updates_per_step, batch_size=batch_size, global_step=steps, log_writer=writer, ema=ema)
 
             if steps % eval_interval == 0:
-                evaluate(env, agent, writer, steps)
+                ema.copy_to(ema_agent.actor.model.parameters())
+                evaluate(env, ema_agent, writer, steps)
+                # evaluate(env, agent, writer, steps)
                 # self.save_models()
                 done =True
 

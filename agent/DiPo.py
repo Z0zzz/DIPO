@@ -108,7 +108,7 @@ class DiPo(object):
 
         return states, best_actions
 
-    def train(self, iterations, batch_size=256, global_step = 0, log_writer=None):
+    def train(self, iterations, batch_size=256, global_step = 0, log_writer=None, ema=None):
         for _ in range(iterations):
             # Sample replay buffer / batch
             states, actions, rewards, next_states, masks = self.memory.sample(batch_size)
@@ -150,7 +150,9 @@ class DiPo(object):
             """ Step Target network """
             for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
                 target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
-
+            
+            ema.step(self.actor.model.parameters())
+            
             if self.step % self.update_actor_target_every == 0:
                 for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
                     target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
